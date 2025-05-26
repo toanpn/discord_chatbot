@@ -13,16 +13,45 @@ A Discord bot that uses Google's Gemini AI to provide chat functionality and ima
 3. Install dependencies: `pip install -r requirements.txt`
 4. Run the bot: `python main.py`
 
-## Deploying to Railway
+## Deploying to AWS EC2
 
-1. Create a Railway account at https://railway.app
-2. Create a new project from GitHub repository
-3. Add environment variables:
-   - DISCORD_TOKEN
-   - GEMINI_API_KEY
-4. Deploy the project
+This project uses GitHub Actions for automated deployment to AWS EC2.
 
-Railway will automatically use the Procfile to start your bot.
+### Prerequisites
+
+1. An AWS EC2 instance
+2. The following GitHub secrets configured in your repository:
+   - `EC2_SSH_KEY`: Private SSH key for connecting to your EC2 instance
+   - `EC2_USER`: Username for SSH connection (e.g., `ec2-user`)
+   - `EC2_HOST`: Public IP or hostname of your EC2 instance
+   - `DISCORD_TOKEN`: Your Discord bot token
+   - `GEMINI_API_KEY`: Your Gemini API key
+
+### Deployment Options
+
+#### Option 1: Direct Python Deployment
+
+Uses systemd to manage the bot process.
+
+1. Push to the `main` branch to trigger deployment
+2. GitHub Actions will:
+   - Connect to your EC2 instance
+   - Clone/pull the repository
+   - Install dependencies
+   - Create a systemd service
+   - Start the bot
+
+#### Option 2: Docker Deployment
+
+Uses Docker to containerize the application.
+
+1. Make sure Docker is installed on your EC2 instance
+2. Push to the `main` branch to trigger deployment
+3. GitHub Actions will:
+   - Connect to your EC2 instance
+   - Clone/pull the repository
+   - Build a Docker image
+   - Run the bot in a container
 
 ## Commands
 
