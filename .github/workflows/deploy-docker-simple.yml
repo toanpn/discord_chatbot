@@ -105,4 +105,4 @@ jobs:
           sudo docker logs discord-bot-container --tail 10
 
           echo "Deployment completed!"
-        ENDSSH 
+        ENDSSH
