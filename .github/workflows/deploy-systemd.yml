@@ -1,4 +1,4 @@
-name: Deploy to EC2 with Docker (Simple)
+name: Deploy to EC2 with Systemd
 
 on:
   workflow_dispatch:
@@ -8,8 +8,7 @@ on:
     paths:
       - 'main.py'
       - 'requirements.txt'
-      - 'Dockerfile'
-      - '.github/workflows/deploy-docker-simple.yml'
+      - '.github/workflows/deploy-systemd.yml'
 
 jobs:
   deploy:
@@ -41,16 +40,11 @@ jobs:
             sudo yum install git -y
           fi
           
-          if ! command -v docker &> /dev/null; then
-            echo "Installing Docker..."
+          if ! command -v python3 &> /dev/null; then
+            echo "Installing Python..."
             sudo yum update -y
-            sudo yum install -y docker
-            sudo systemctl enable docker
-            sudo systemctl start docker
+            sudo yum install python3 python3-pip -y
           fi
-
-          # Ensure Docker is running
-          sudo systemctl status docker --no-pager
 
           # Configure git to handle divergent branches
           git config --global pull.rebase false
@@ -77,32 +71,45 @@ jobs:
         GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
         ENDENV
 
-          # Build Docker image
-          echo "Building Docker image..."
-          sudo docker build -t discord-bot:latest . --no-cache
+          # Install Python dependencies
+          echo "Installing Python dependencies..."
+          pip3 install --user -r requirements.txt
 
-          # Stop existing container
-          echo "Stopping existing container..."
-          sudo docker stop discord-bot-container 2>/dev/null || echo "No existing container to stop"
-          sudo docker rm discord-bot-container 2>/dev/null || echo "No existing container to remove"
+          # Create systemd service
+          echo "Creating systemd service..."
+          sudo tee /etc/systemd/system/discord-bot.service > /dev/null << 'ENDSERVICE'
+        [Unit]
+        Description=Discord Bot with Gemini AI
+        After=network.target
 
-          # Run new container
-          echo "Starting new container..."
-          sudo docker run -d \
-            --name discord-bot-container \
-            --restart unless-stopped \
-            --env-file .env \
-            discord-bot:latest
+        [Service]
+        Type=simple
+        User=$USER
+        WorkingDirectory=$HOME/discord_chatbot
+        ExecStart=/usr/bin/python3 $HOME/discord_chatbot/main.py
+        Restart=always
+        RestartSec=10
+        Environment=PATH=/usr/bin:/usr/local/bin
 
-          # Wait a moment for container to start
+        [Install]
+        WantedBy=multi-user.target
+        ENDSERVICE
+
+          # Reload systemd and restart service
+          echo "Starting Discord bot service..."
+          sudo systemctl daemon-reload
+          sudo systemctl enable discord-bot.service
+          sudo systemctl restart discord-bot.service
+
+          # Wait a moment for service to start
           sleep 5
 
-          # Check status
-          echo "Container status:"
-          sudo docker ps | grep discord-bot-container || echo "Container not running!"
+          # Check service status
+          echo "Service status:"
+          sudo systemctl status discord-bot.service --no-pager || echo "Service failed to start"
           
-          echo "Container logs:"
-          sudo docker logs discord-bot-container --tail 10
+          echo "Service logs:"
+          sudo journalctl -u discord-bot.service --no-pager --lines=10
 
           echo "Deployment completed!"
         ENDSSH 
