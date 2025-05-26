@@ -1,12 +1,13 @@
-name: Deploy to EC2 with Docker
+name: Deploy to EC2 with Docker (DISABLED)
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
   workflow_dispatch:
+  # Disabled automatic triggers to avoid conflicts
+  # push:
+  #   branches:
+  #     - main
+  #   paths-ignore:
+  #     - '**.md'
 
 jobs:
   deploy:
@@ -24,7 +25,7 @@ jobs:
 
     - name: SSH into EC2 and deploy
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
           set -e
 
           # Install git and docker if not available
@@ -36,10 +37,12 @@ jobs:
             sudo systemctl enable docker
             sudo systemctl start docker
             sudo usermod -a -G docker $(whoami)
+            # Need to restart shell for group changes to take effect
+            newgrp docker
           fi
 
           # Trust github.com
-          ssh-keyscan github.com >> ~/.ssh/known_hosts || true
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # Pull or clone code
           cd ~
@@ -52,27 +55,30 @@ jobs:
           fi
 
           # Create .env file with secrets
-          cat > .env << EOL
-          DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          EOL
+          cat > .env << 'ENDENV'
+        DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
+        GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        ENDENV
 
           # Build Docker image
-          docker build -t discord-bot:latest .
+          sudo docker build -t discord-bot:latest .
 
           # Stop and remove existing container if it exists
-          if [ $(docker ps -a -q -f name=discord-bot-container) ]; then
-            docker stop discord-bot-container
-            docker rm discord-bot-container
+          if [ "$(sudo docker ps -a -q -f name=discord-bot-container)" ]; then
+            sudo docker stop discord-bot-container
+            sudo docker rm discord-bot-container
           fi
 
           # Run new container with environment variables
-          docker run -d \
+          sudo docker run -d \
             --name discord-bot-container \
             --restart always \
             --env-file .env \
             discord-bot:latest
 
           # Check container status
-          docker ps | grep discord-bot-container
-        EOF 
+          sudo docker ps | grep discord-bot-container || echo "Container not found"
+          
+          # Show container logs for debugging
+          sudo docker logs discord-bot-container --tail 20
+        ENDSSH 
