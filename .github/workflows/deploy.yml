@@ -82,6 +82,10 @@ jobs:
           sudo docker rm discord-bot 2>/dev/null || true
           sudo docker rm discord-bot-container 2>/dev/null || true
 
+          # Remove existing image to save space
+          echo "🗑️ Removing old image..."
+          sudo docker rmi discord-bot:latest 2>/dev/null || true
+
           # Build new image (with pip cache preserved)
           echo "🔨 Building Docker image..."
           sudo docker build -t discord-bot:latest .
