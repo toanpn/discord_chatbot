@@ -318,6 +318,205 @@ async def imagine_command(ctx, *, prompt: str):
         user_name = ctx.author.display_name
         await ctx.reply(f"Úi giời ơi, em gặp lỗi khi tạo ảnh. {user_name} thông cảm giúp nô tỳ nhé! 😔")
 
+# Add slash command for chat summary
+@bot.tree.command(name="summary", description="Summarize recent chat messages in this channel")
+async def summary_command(interaction: discord.Interaction, count: int = 10):
+    """Slash command for summarizing recent chat messages"""
+    await interaction.response.defer(thinking=True)
+    
+    # Validate count parameter
+    if count < 1:
+        await interaction.followup.send("Thưa ngài, số tin nhắn phải lớn hơn 0 ạ! 🙏")
+        return
+    elif count > 300:
+        await interaction.followup.send("Ố dồi ôi, em chỉ có thể tóm tắt tối đa 100 tin nhắn thôi ạ! 🙏")
+        return
+    
+    try:
+        user_name = interaction.user.display_name
+        await interaction.followup.send(f"Ô sin đang đọc và tóm tắt {count} tin nhắn gần đây cho {user_name}... 📖")
+        
+        # Fetch recent messages from the channel
+        messages = []
+        async for message in interaction.channel.history(limit=count + 1):  # +1 to exclude the summary command itself
+            # Skip the bot's own messages and the summary command
+            if message.author != bot.user and message.id != interaction.id:
+                messages.append(message)
+                if len(messages) >= count:
+                    break
+        
+        if not messages:
+            await interaction.followup.send(f"Thưa {user_name}, không có tin nhắn nào để tóm tắt ạ! 🙏")
+            return
+        
+        # Reverse to get chronological order (oldest first)
+        messages.reverse()
+        
+        # Prepare message content for summarization
+        chat_content = []
+        for msg in messages:
+            timestamp = msg.created_at.strftime("%H:%M")
+            author_name = msg.author.display_name
+            content = msg.content
+            
+            # Handle attachments
+            if msg.attachments:
+                attachment_info = f" [Đính kèm: {', '.join([att.filename for att in msg.attachments])}]"
+                content += attachment_info
+            
+            # Handle embeds
+            if msg.embeds:
+                content += " [Có embed/link]"
+            
+            # Handle reactions
+            if msg.reactions:
+                reactions = ", ".join([f"{reaction.emoji}({reaction.count})" for reaction in msg.reactions])
+                content += f" [Reactions: {reactions}]"
+            
+            chat_content.append(f"[{timestamp}] {author_name}: {content}")
+        
+        # Create summary prompt
+        summary_prompt = f"""Hãy tóm tắt cuộc trò chuyện sau đây bằng tiếng Việt một cách chi tiết và thú vị:
+
+{chr(10).join(chat_content)}
+
+Yêu cầu tóm tắt:
+1. Nội dung chính của cuộc trò chuyện
+2. Ai nói gì (tên người và nội dung chính)
+3. Thái độ, tâm trạng của các thành viên trong cuộc trò chuyện
+4. Những điểm nổi bật, thú vị hoặc quan trọng
+5. Tổng quan về không khí cuộc trò chuyện
+
+Hãy viết một cách sinh động, dễ hiểu và không quá dài (khoảng 200-400 từ)."""
+
+        # Generate summary using Gemini
+        try:
+            response = await model.generate_content_async(summary_prompt)
+            summary_text = response.text
+            
+            # Limit response length for Discord
+            if len(summary_text) > 1900:  # Leave room for formatting
+                summary_text = summary_text[:1890] + "..."
+            
+            # Format the response
+            formatted_response = f"📋 **Tóm tắt {len(messages)} tin nhắn gần đây:**\n\n{summary_text}\n\n*- Ô sin đã tóm tắt xong ạ! 🫡*"
+            
+            await interaction.followup.send(formatted_response)
+            
+        except Exception as e:
+            print(f"Error generating summary: {e}")
+            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and e.response.prompt_feedback.block_reason:
+                await interaction.followup.send(f"Úi giời ơi, em không thể tóm tắt được vì: {e.response.prompt_feedback.block_reason.name}. {user_name} thông cảm giúp em nhé! 🙏")
+            else:
+                await interaction.followup.send(f"Ố dồi ôi, em gặp lỗi khi tóm tắt tin nhắn. {user_name} thông cảm giúp nô tỳ nhé! 😔")
+                
+    except discord.Forbidden:
+        await interaction.followup.send(f"Úi giời ơi, em không có quyền đọc lịch sử tin nhắn trong kênh này. {user_name} thông cảm giúp nô tỳ nhé! 😔")
+    except Exception as e:
+        print(f"Error in summary command: {e}")
+        user_name = interaction.user.display_name
+        await interaction.followup.send(f"Úi giời ơi, em gặp lỗi khi xử lý yêu cầu tóm tắt. {user_name} thông cảm giúp ô sin nhé! 😔")
+
+@bot.command(name='summary', aliases=['sum', 'summarize'], help='Summarize recent chat messages. Example: !summary 20')
+async def summary_prefix_command(ctx, count: int = 10):
+    """Prefix command for summarizing recent chat messages."""
+    # Validate count parameter
+    if count < 1:
+        user_name = ctx.author.display_name
+        await ctx.reply(f"Thưa {user_name}, số tin nhắn phải lớn hơn 0 ạ! 🙏")
+        return
+    elif count > 100:
+        user_name = ctx.author.display_name
+        await ctx.reply(f"Ố dồi ôi, em chỉ có thể tóm tắt tối đa 100 tin nhắn thôi ạ! 🙏")
+        return
+    
+    try:
+        user_name = ctx.author.display_name
+        await ctx.reply(f"Ô sin đang đọc và tóm tắt {count} tin nhắn gần đây cho {user_name}... 📖")
+        
+        async with ctx.typing():
+            # Fetch recent messages from the channel
+            messages = []
+            async for message in ctx.channel.history(limit=count + 2):  # +2 to exclude the summary command and bot's response
+                # Skip the bot's own messages and the summary command
+                if message.author != bot.user and message.id != ctx.message.id:
+                    messages.append(message)
+                    if len(messages) >= count:
+                        break
+            
+            if not messages:
+                await ctx.reply(f"Thưa {user_name}, không có tin nhắn nào để tóm tắt ạ! 🙏")
+                return
+            
+            # Reverse to get chronological order (oldest first)
+            messages.reverse()
+            
+            # Prepare message content for summarization
+            chat_content = []
+            for msg in messages:
+                timestamp = msg.created_at.strftime("%H:%M")
+                author_name = msg.author.display_name
+                content = msg.content
+                
+                # Handle attachments
+                if msg.attachments:
+                    attachment_info = f" [Đính kèm: {', '.join([att.filename for att in msg.attachments])}]"
+                    content += attachment_info
+                
+                # Handle embeds
+                if msg.embeds:
+                    content += " [Có embed/link]"
+                
+                # Handle reactions
+                if msg.reactions:
+                    reactions = ", ".join([f"{reaction.emoji}({reaction.count})" for reaction in msg.reactions])
+                    content += f" [Reactions: {reactions}]"
+                
+                chat_content.append(f"[{timestamp}] {author_name}: {content}")
+            
+            # Create summary prompt
+            summary_prompt = f"""Hãy tóm tắt cuộc trò chuyện sau đây bằng tiếng Việt một cách chi tiết và thú vị:
+
+{chr(10).join(chat_content)}
+
+Yêu cầu tóm tắt:
+1. Nội dung chính của cuộc trò chuyện
+2. Ai nói gì (tên người và nội dung chính)
+3. Thái độ, tâm trạng của các thành viên trong cuộc trò chuyện
+4. Những điểm nổi bật, thú vị hoặc quan trọng
+5. Tổng quan về không khí cuộc trò chuyện
+
+Hãy viết một cách sinh động, dễ hiểu và không quá dài (khoảng 200-400 từ)."""
+
+            # Generate summary using Gemini
+            try:
+                response = await model.generate_content_async(summary_prompt)
+                summary_text = response.text
+                
+                # Limit response length for Discord
+                if len(summary_text) > 1900:  # Leave room for formatting
+                    summary_text = summary_text[:1890] + "..."
+                
+                # Format the response
+                formatted_response = f"📋 **Tóm tắt {len(messages)} tin nhắn gần đây:**\n\n{summary_text}\n\n*- Ô sin đã tóm tắt xong ạ! 🫡*"
+                
+                await ctx.reply(formatted_response)
+                
+            except Exception as e:
+                print(f"Error generating summary: {e}")
+                if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback') and e.response.prompt_feedback.block_reason:
+                    await ctx.reply(f"Úi giời ơi, em không thể tóm tắt được vì: {e.response.prompt_feedback.block_reason.name}. {user_name} thông cảm giúp em nhé! 🙏")
+                else:
+                    await ctx.reply(f"Ố dồi ôi, em gặp lỗi khi tóm tắt tin nhắn. {user_name} thông cảm giúp nô tỳ nhé! 😔")
+                    
+    except discord.Forbidden:
+        user_name = ctx.author.display_name
+        await ctx.reply(f"Úi giời ơi, em không có quyền đọc lịch sử tin nhắn trong kênh này. {user_name} thông cảm giúp nô tỳ nhé! 😔")
+    except Exception as e:
+        print(f"Error in summary command: {e}")
+        user_name = ctx.author.display_name
+        await ctx.reply(f"Úi giời ơi, em gặp lỗi khi xử lý yêu cầu tóm tắt. {user_name} thông cảm giúp ô sin nhé! 😔")
+
 # General error handler for the bot
 @bot.event
 async def on_command_error(ctx, error):
