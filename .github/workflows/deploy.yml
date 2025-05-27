@@ -50,8 +50,6 @@ jobs:
 
           # Ensure Docker is running
           sudo systemctl start docker
-          echo "🐳 Docker status:"
-          sudo systemctl status docker --no-pager -l
 
           # Configure git
           git config --global pull.rebase false
@@ -77,22 +75,16 @@ jobs:
         GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
         ENDENV
 
-          # Stop and remove existing container
-          echo "🛑 Stopping existing container..."
+          # Stop and remove existing containers (both names)
+          echo "🛑 Stopping existing containers..."
           sudo docker stop discord-bot 2>/dev/null || true
+          sudo docker stop discord-bot-container 2>/dev/null || true
           sudo docker rm discord-bot 2>/dev/null || true
+          sudo docker rm discord-bot-container 2>/dev/null || true
 
-          # Clean up old images to free space
-          echo "🧹 Cleaning up old images..."
-          sudo docker image prune -f || true
-
-          # Build new image with verbose output
+          # Build new image (with pip cache preserved)
           echo "🔨 Building Docker image..."
-          sudo docker build -t discord-bot:latest . --progress=plain --no-cache
-
-          # Verify image was built
-          echo "🔍 Verifying image..."
-          sudo docker images | grep discord-bot
+          sudo docker build -t discord-bot:latest .
 
           # Run new container
           echo "▶️ Starting new container..."
@@ -103,22 +95,16 @@ jobs:
             discord-bot:latest
 
           # Wait for container to start
-          sleep 5
+          sleep 3
 
           # Check deployment status
           echo "✅ Checking deployment status..."
           if sudo docker ps | grep -q discord-bot; then
             echo "🎉 Deployment successful!"
-            echo "📋 Container info:"
-            sudo docker ps | grep discord-bot
-            echo "📝 Recent logs:"
-            sudo docker logs discord-bot --tail 10
+            sudo docker logs discord-bot --tail 5
           else
             echo "❌ Deployment failed!"
-            echo "📝 Container logs:"
-            sudo docker logs discord-bot --tail 20
-            echo "📋 All containers:"
-            sudo docker ps -a
+            sudo docker logs discord-bot --tail 10
             exit 1
           fi
         ENDSSH 
