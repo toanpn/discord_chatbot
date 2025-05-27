@@ -328,8 +328,8 @@ async def summary_command(interaction: discord.Interaction, count: int = 10):
     if count < 1:
         await interaction.followup.send("Thưa ngài, số tin nhắn phải lớn hơn 0 ạ! 🙏")
         return
-    elif count > 300:
-        await interaction.followup.send("Ố dồi ôi, em chỉ có thể tóm tắt tối đa 100 tin nhắn thôi ạ! 🙏")
+    elif count > 200:
+        await interaction.followup.send("Ố dồi ôi, em chỉ có thể tóm tắt tối đa 200 tin nhắn thôi ạ! 🙏")
         return
     
     try:
@@ -376,18 +376,17 @@ async def summary_command(interaction: discord.Interaction, count: int = 10):
             chat_content.append(f"[{timestamp}] {author_name}: {content}")
         
         # Create summary prompt
-        summary_prompt = f"""Hãy tóm tắt cuộc trò chuyện sau đây bằng tiếng Việt một cách chi tiết và thú vị:
+        summary_prompt = f"""Hãy tóm tắt cuộc trò chuyện sau đây bằng tiếng Việt  thú vị:
 
 {chr(10).join(chat_content)}
 
 Yêu cầu tóm tắt:
-1. Nội dung chính của cuộc trò chuyện
-2. Ai nói gì (tên người và nội dung chính)
-3. Thái độ, tâm trạng của các thành viên trong cuộc trò chuyện
-4. Những điểm nổi bật, thú vị hoặc quan trọng
-5. Tổng quan về không khí cuộc trò chuyện
+- Nội dung chính của cuộc trò chuyện
+- Ai nói về vấn đề gì (chỉ tóm tắt chứ không cần chi tiết nội dung)
+- Không khí trao đổi như nào, tâm trạng có ai không vui ko, có gì hay ho đặc biệt không
+Tổng quan về không khí cuộc trò chuyện
 
-Hãy viết một cách sinh động, dễ hiểu và không quá dài (khoảng 200-400 từ)."""
+Hãy viết một cách hài hước, dễ hiểu và đừng quá dài dòng văn tự quá nhé."""
 
         # Generate summary using Gemini
         try:
@@ -425,9 +424,9 @@ async def summary_prefix_command(ctx, count: int = 10):
         user_name = ctx.author.display_name
         await ctx.reply(f"Thưa {user_name}, số tin nhắn phải lớn hơn 0 ạ! 🙏")
         return
-    elif count > 100:
+    elif count > 200:
         user_name = ctx.author.display_name
-        await ctx.reply(f"Ố dồi ôi, em chỉ có thể tóm tắt tối đa 100 tin nhắn thôi ạ! 🙏")
+        await ctx.reply(f"Ố dồi ôi, em chỉ có thể tóm tắt tối đa 200 tin nhắn thôi ạ! 🙏")
         return
     
     try:
@@ -480,13 +479,12 @@ async def summary_prefix_command(ctx, count: int = 10):
 {chr(10).join(chat_content)}
 
 Yêu cầu tóm tắt:
-1. Nội dung chính của cuộc trò chuyện
-2. Ai nói gì (tên người và nội dung chính)
-3. Thái độ, tâm trạng của các thành viên trong cuộc trò chuyện
-4. Những điểm nổi bật, thú vị hoặc quan trọng
-5. Tổng quan về không khí cuộc trò chuyện
+- Nội dung chính của cuộc trò chuyện
+- Ai nói về vấn đề gì (chỉ tóm tắt chứ không cần chi tiết nội dung)
+- Không khí trao đổi như nào, tâm trạng có ai không vui ko, có gì hay ho đặc biệt không
+Tổng quan về không khí cuộc trò chuyện
 
-Hãy viết một cách sinh động, dễ hiểu và không quá dài (khoảng 200-400 từ)."""
+Hãy viết một cách hài hước, dễ hiểu và đừng quá dài dòng văn tự quá nhé."""
 
             # Generate summary using Gemini
             try:
