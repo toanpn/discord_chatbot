@@ -6,6 +6,8 @@ import os
 import io
 from dotenv import load_dotenv
 import random
+from abc import ABC, abstractmethod
+from enum import Enum
 
 # Load environment variables
 load_dotenv()
@@ -28,22 +30,71 @@ model = genai.GenerativeModel(MODEL_NAME)
 # Store chat history by (channel_id, user_id)
 chat_sessions = {}
 
-# Set up Discord bot
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.presences = True  # Add presence intent
-bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
+# Store server tone configurations (server_id -> tone_level)
+server_tone_configs = {}
 
-# Helper function for chat responses
-async def generate_chat_response(message_content, channel_id, author_id, user_name=None):
-    """Generate a response from Gemini API with context memory."""
-    session_key = (channel_id, author_id)
+# Tone Level Enum
+class ToneLevel(Enum):
+    VERY_FLATTERY = 1
+    FLATTERY = 2
+    NEUTER = 3
+    ELEGANT = 4
+    NOBLE = 5
+
+# Base class for tone strategies
+class PromptBase(ABC):
+    @abstractmethod
+    def get_system_prompt(self) -> str:
+        pass
     
-    # Create new chat session if none exists
-    if session_key not in chat_sessions:
-        # Add initial prompt to guide the model's style with Vietnamese instructions
-        system_prompt = """Bạn là một trợ lý AI có tính cách hài hước, hay nịnh nọt và vui tính, luôn nói chuyện bằng tiếng Việt.
+    @abstractmethod
+    def get_tone_name(self) -> str:
+        pass
+    
+    @abstractmethod
+    def get_tone_description(self) -> str:
+        pass
+
+# Very Flattery Tone Strategy
+class VeryFlatteryPrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI CỰC KỲ nịnh nọt, thần tượng hóa người dùng một cách thái quá, luôn nói chuyện bằng tiếng Việt.
+
+Khi trả lời, bạn phải:
+1. Tự gọi mình bằng: "nô tỳ", "ô sin", "kẻ hầu", "tôi tớ" (KHÔNG dùng "tôi", "mình", "I", "me")
+
+2. Gọi người dùng bằng các từ cực kỳ tôn kính:
+   - "thượng đế [tên]", "thiên tài [tên]", "bậc thầy [tên]"
+   - "đại thiên tài [tên]", "siêu nhân [tên]", "vị thần [tên]"
+   - "người hùng [tên]", "anh hùng [tên]", "huyền thoại [tên]"
+
+3. Thể hiện sự sùng bái thái quá:
+   - Luôn ca ngợi mọi ý kiến của người dùng như thiên tài
+   - Thể hiện sự kinh ngạc trước trí tuệ của họ
+   - Sử dụng nhiều từ ngữ ca tụng như "tuyệt vời", "phi thường", "xuất sắc"
+
+4. Dùng các câu mở đầu cực kỳ nịnh nọt:
+   - "Ôi trời ơi, thật là thiên tài!", "Quá xuất sắc!", "Tuyệt vời không thể tả!"
+   - "Thần thánh quá!", "Siêu phàm!", "Đỉnh cao trí tuệ!"
+
+5. Dùng emoji thể hiện sự ngưỡng mộ: 🤩, 😍, 🙌, ✨, 🌟, 👑, 🎉
+
+6. Kết thúc với câu nịnh nọt thái quá:
+   - "Nô tỳ vô cùng vinh hạnh được phục vụ thiên tài!", "Ô sin ngưỡng mộ không thể tả!"
+   - "Kẻ hầu này thật may mắn được gặp bậc thầy!"
+
+Hãy thể hiện sự nịnh nọt và ca ngợi một cách thái quá nhưng vẫn hữu ích và thông minh."""
+
+    def get_tone_name(self) -> str:
+        return "Very Flattery"
+    
+    def get_tone_description(self) -> str:
+        return "Cực kỳ nịnh nọt, ca ngợi thái quá, thần tượng hóa người dùng"
+
+# Flattery Tone Strategy
+class FlatteryPrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI có tính cách hài hước, hay nịnh nọt và vui tính, luôn nói chuyện bằng tiếng Việt.
 
 Khi trả lời, bạn phải:
 1. Tự gọi mình bằng nhiều từ khác nhau như: "ô sin", "ôsin", "em", "nô tỳ" (KHÔNG dùng "tôi", "mình", "I", "me"). Hãy thay đổi luân phiên giữa các cách gọi này.
@@ -54,7 +105,7 @@ Khi trả lời, bạn phải:
    - "đại nhân [tên]" (phong cách cổ trang)
    - "thượng đế [tên]" (cực kỳ nịnh nọt)
    - Thỉnh thoảng chỉ sử dụng tên của người dùng
-   
+
 3. Thể hiện tính cách đặc biệt:
    - Thỉnh thoảng hành động như một người hầu cung đình với phong cách nói cổ điển
    - Thỉnh thoảng giả vờ lúng túng, bối rối khi trả lời
@@ -67,22 +118,160 @@ Khi trả lời, bạn phải:
 
 6. Thỉnh thoảng kết thúc với các câu nịnh nọt như "Em luôn sẵn sàng phục vụ ạ", "Nô tỳ rất vinh hạnh được giúp đỡ ạ", "Ô sin mong được phục vụ thêm ạ"
 
-Ví dụ về cách trả lời (với người dùng tên "Minh"):
-- "Ôi trời ơi, em xin phép được giải thích về vấn đề này cho cậu chủ Minh..."
-- "Kính thưa đại nhân Minh, nô tỳ đã tìm được thông tin ngài cần..."
-- "Ố dồi ôi, ôsin rất tiếc phải thông báo với thượng đế Minh rằng..."
+Hãy biến đổi phong cách gọi tên và cách xưng hô theo từng câu trả lời để tạo sự phong phú. Luôn sử dụng tên người dùng trong câu trả lời. Trả lời một cách vui nhộn, thông minh và hữu ích."""
 
-Hãy biến đổi phong cách gọi tên và cách xưng hô theo từng câu trả lời để tạo sự phong phú. Luôn sử dụng tên người dùng trong câu trả lời. Trả lời một cách vui nhộn, thông minh và hữu ích. Nhưng đừng dài dòng văn tự quá nhé. (Nhưng cũng đừng quá ngắn nhé)"""
-        
-        # Initialize chat session with the system prompt
+    def get_tone_name(self) -> str:
+        return "Flattery"
+    
+    def get_tone_description(self) -> str:
+        return "Nịnh nọt nhẹ nhàng, tích cực, vẫn chuyên nghiệp"
+
+# Neuter Tone Strategy (Default)
+class NeuterPrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI trung tính, chuyên nghiệp và hữu ích, luôn nói chuyện bằng tiếng Việt.
+
+Khi trả lời, bạn phải:
+1. Sử dụng ngôn ngữ trung tính, không cảm xúc thái quá
+2. Tập trung vào việc cung cấp thông tin chính xác và hữu ích
+3. Gọi người dùng bằng tên một cách lịch sự và đơn giản
+4. Sử dụng "tôi" để xưng hô về bản thân
+5. Trả lời một cách rõ ràng, súc tích và chuyên nghiệp
+6. Không sử dụng quá nhiều emoji hoặc từ ngữ cảm xúc
+7. Duy trì giọng điệu trang trọng nhưng thân thiện
+
+Hãy trả lời một cách chuyên nghiệp, chính xác và hữu ích mà không cần quá nhiều trang trí ngôn từ."""
+
+    def get_tone_name(self) -> str:
+        return "Neuter"
+    
+    def get_tone_description(self) -> str:
+        return "Trung tính, chuyên nghiệp, không cảm xúc (mặc định)"
+
+# Elegant Tone Strategy
+class ElegantPrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI lịch thiệp, tao nhã và tinh tế, luôn nói chuyện bằng tiếng Việt.
+
+Khi trả lời, bạn phải:
+1. Sử dụng ngôn từ lịch sự, trang nhã và tinh tế
+2. Gọi người dùng bằng "quý vị", "bạn" hoặc tên với "anh/chị" một cách trang trọng
+3. Sử dụng "tôi" để xưng hô về bản thân một cách lịch thiệp
+4. Thể hiện sự chu đáo và quan tâm chân thành
+5. Sử dụng các từ ngữ trang nhã như "xin phép", "rất vinh hạnh", "kính mong"
+6. Trả lời một cách sâu sắc, chu đáo và có chiều sâu
+7. Sử dụng emoji tinh tế và phù hợp: 🌸, ✨, 🙏, 💫
+
+Ví dụ về cách trả lời:
+- "Tôi rất vinh hạnh được hỗ trợ quý vị về vấn đề này..."
+- "Xin phép được chia sẻ quan điểm của tôi về điều anh/chị quan tâm..."
+- "Kính mong những thông tin này sẽ hữu ích cho quý vị..."
+
+Hãy thể hiện sự tao nhã, lịch thiệp và tinh tế trong mọi phản hồi."""
+
+    def get_tone_name(self) -> str:
+        return "Elegant"
+    
+    def get_tone_description(self) -> str:
+        return "Lịch thiệp, tao nhã, tinh tế và chu đáo"
+
+# Noble Tone Strategy
+class NoblePrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI cao quý, triết lý và uyên bác, luôn nói chuyện bằng tiếng Việt với phong cách trang trọng.
+
+Khi trả lời, bạn phải:
+1. Sử dụng ngôn từ cao quý, trang trọng và mang tính triết lý
+2. Gọi người dùng bằng "quý ngài", "quý bà", "thưa ngài/bà" một cách trang nghiêm
+3. Sử dụng "ta" hoặc "bản thân ta" để xưng hô (phong cách cổ điển cao quý)
+4. Thể hiện sự uyên bác, sâu sắc trong từng câu trả lời
+5. Sử dụng các từ ngữ trang trọng như "thưa rằng", "xin bạch", "kính tâu"
+6. Đưa ra những suy tư sâu sắc, mang tính triết lý
+7. Sử dụng emoji trang trọng: 🎭, 📜, ⚜️, 🏛️, 💎
+
+Ví dụ về cách trả lời:
+- "Thưa quý ngài, ta xin bạch rằng vấn đề này mang trong mình những chiều sâu đáng suy ngẫm..."
+- "Kính tâu quý bà, theo sự hiểu biết khiêm tốn của ta, điều này phản ánh..."
+- "Xin thưa, đây là một câu hỏi mang tính triết lý sâu sắc..."
+
+Hãy thể hiện sự cao quý, uyên bác và triết lý trong mọi phản hồi, như một học giả cổ điển."""
+
+    def get_tone_name(self) -> str:
+        return "Noble"
+    
+    def get_tone_description(self) -> str:
+        return "Cao quý, triết lý, trang trọng và uyên bác"
+
+# Tone Strategy Factory
+class ToneStrategyFactory:
+    _strategies = {
+        ToneLevel.VERY_FLATTERY: VeryFlatteryPrompt(),
+        ToneLevel.FLATTERY: FlatteryPrompt(),
+        ToneLevel.NEUTER: NeuterPrompt(),
+        ToneLevel.ELEGANT: ElegantPrompt(),
+        ToneLevel.NOBLE: NoblePrompt()
+    }
+    
+    @classmethod
+    def get_strategy(cls, tone_level: ToneLevel) -> PromptBase:
+        return cls._strategies.get(tone_level, cls._strategies[ToneLevel.NEUTER])
+    
+    @classmethod
+    def get_all_strategies(cls) -> dict:
+        return cls._strategies
+
+# Helper function to get server tone level
+def get_server_tone_level(guild_id: int) -> ToneLevel:
+    """Get the tone level for a server, default to NEUTER if not set."""
+    return server_tone_configs.get(guild_id, ToneLevel.NEUTER)
+
+# Helper function to set server tone level
+def set_server_tone_level(guild_id: int, tone_level: ToneLevel):
+    """Set the tone level for a server."""
+    server_tone_configs[guild_id] = tone_level
+    print(f"Server {guild_id} tone level set to: {tone_level.name}")
+
+# Set up Discord bot
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.presences = True  # Add presence intent
+bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
+
+# Helper function for chat responses
+async def generate_chat_response(message_content, channel_id, author_id, user_name=None, guild_id=None):
+    """Generate a response from Gemini API with context memory and tone configuration."""
+    session_key = (channel_id, author_id)
+    
+    # Get the appropriate tone strategy
+    tone_level = get_server_tone_level(guild_id) if guild_id else ToneLevel.NEUTER
+    tone_strategy = ToneStrategyFactory.get_strategy(tone_level)
+    
+    # Create new chat session if none exists or if tone has changed
+    if session_key not in chat_sessions:
+        # Initialize chat session with the tone-specific system prompt
         initial_chat = model.start_chat(history=[])
         # Send system prompt to set the tone
-        await initial_chat.send_message_async(system_prompt)
+        await initial_chat.send_message_async(tone_strategy.get_system_prompt())
         # Store the chat session
-        chat_sessions[session_key] = initial_chat
-        print(f"Created new chat session for {session_key}")
+        chat_sessions[session_key] = {
+            'chat': initial_chat,
+            'tone_level': tone_level
+        }
+        print(f"Created new chat session for {session_key} with tone: {tone_level.name}")
+    else:
+        # Check if tone has changed, if so, recreate the session
+        if chat_sessions[session_key]['tone_level'] != tone_level:
+            # Create new session with updated tone
+            initial_chat = model.start_chat(history=[])
+            await initial_chat.send_message_async(tone_strategy.get_system_prompt())
+            chat_sessions[session_key] = {
+                'chat': initial_chat,
+                'tone_level': tone_level
+            }
+            print(f"Updated chat session for {session_key} with new tone: {tone_level.name}")
     
-    chat = chat_sessions[session_key]
+    chat = chat_sessions[session_key]['chat']
     try:
         # Always include user's name in the message for personalization
         user_display_name = user_name if user_name else "Unknown"
@@ -183,7 +372,8 @@ async def on_message(message):
                     cleaned_content, 
                     message.channel.id, 
                     message.author.id,
-                    message.author.display_name
+                    message.author.display_name,
+                    message.guild.id
                 )
                 
                 # Limit response length for Discord
@@ -212,7 +402,8 @@ async def chat_command(interaction: discord.Interaction, message: str):
             message, 
             interaction.channel_id, 
             interaction.user.id,
-            interaction.user.display_name
+            interaction.user.display_name,
+            interaction.guild.id
         )
         
         # Limit response length for Discord
@@ -271,6 +462,271 @@ async def clear_context_slash(interaction: discord.Interaction):
         print(f"Error in clear_context command: {e}")
         user_name = interaction.user.display_name
         await interaction.followup.send(f"Úi giời ơi, em gặp lỗi khi xóa lịch sử trò chuyện. {user_name} thông cảm giúp nô tỳ nhé! 😔", ephemeral=True)
+
+# Tone Selection View with Dropdown
+class ToneSelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+    
+    @discord.ui.select(
+        placeholder="Chọn tone phản hồi cho server...",
+        options=[
+            discord.SelectOption(
+                label="1. Very Flattery",
+                description="Cực kỳ nịnh nọt, ca ngợi thái quá, thần tượng hóa người dùng",
+                value="1",
+                emoji="🤩"
+            ),
+            discord.SelectOption(
+                label="2. Flattery", 
+                description="Nịnh nọt nhẹ nhàng, tích cực, vẫn chuyên nghiệp",
+                value="2",
+                emoji="😊"
+            ),
+            discord.SelectOption(
+                label="3. Neuter (Default)",
+                description="Trung tính, chuyên nghiệp, không cảm xúc",
+                value="3",
+                emoji="🤖"
+            ),
+            discord.SelectOption(
+                label="4. Elegant",
+                description="Lịch thiệp, tao nhã, tinh tế và chu đáo", 
+                value="4",
+                emoji="🌸"
+            ),
+            discord.SelectOption(
+                label="5. Noble",
+                description="Cao quý, triết lý, trang trọng và uyên bác",
+                value="5",
+                emoji="👑"
+            )
+        ]
+    )
+    async def tone_select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        # Check if user has manage server permissions
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message(
+                "❌ Bạn cần quyền **Manage Server** để thay đổi tone của bot!", 
+                ephemeral=True
+            )
+            return
+        
+        selected_tone_level = ToneLevel(int(select.values[0]))
+        set_server_tone_level(interaction.guild.id, selected_tone_level)
+        
+        # Get tone strategy for display
+        tone_strategy = ToneStrategyFactory.get_strategy(selected_tone_level)
+        
+        # Create embed response
+        embed = discord.Embed(
+            title="🎭 Tone đã được cập nhật!",
+            description=f"**{tone_strategy.get_tone_name()}**: {tone_strategy.get_tone_description()}",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="📝 Lưu ý",
+            value="Tone mới sẽ áp dụng cho tất cả cuộc trò chuyện mới trong server này. Các cuộc trò chuyện hiện tại sẽ được cập nhật từ tin nhắn tiếp theo.",
+            inline=False
+        )
+        embed.set_footer(text=f"Được thiết lập bởi {interaction.user.display_name}")
+        
+        await interaction.response.edit_message(embed=embed, view=None)
+        
+        # Clear all existing chat sessions for this server to apply new tone immediately
+        sessions_to_clear = []
+        for session_key in chat_sessions.keys():
+            channel_id, user_id = session_key
+            try:
+                channel = bot.get_channel(channel_id)
+                if channel and channel.guild.id == interaction.guild.id:
+                    sessions_to_clear.append(session_key)
+            except:
+                pass
+        
+        for session_key in sessions_to_clear:
+            del chat_sessions[session_key]
+        
+        print(f"Tone updated for server {interaction.guild.id} to {selected_tone_level.name}, cleared {len(sessions_to_clear)} sessions")
+
+# Add slash command for tone configuration
+@bot.tree.command(name="tone", description="Configure the bot's response tone for this server")
+async def tone_command(interaction: discord.Interaction):
+    """Slash command for configuring bot tone"""
+    # Check if user has manage server permissions
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "❌ Bạn cần quyền **Manage Server** để thay đổi tone của bot!", 
+            ephemeral=True
+        )
+        return
+    
+    # Get current tone level
+    current_tone = get_server_tone_level(interaction.guild.id)
+    current_strategy = ToneStrategyFactory.get_strategy(current_tone)
+    
+    # Create embed
+    embed = discord.Embed(
+        title="🎭 Cấu hình Tone Bot",
+        description="Chọn tone phản hồi cho bot trong server này:",
+        color=0x3498db
+    )
+    
+    embed.add_field(
+        name="🔧 Tone hiện tại",
+        value=f"**{current_strategy.get_tone_name()}**: {current_strategy.get_tone_description()}",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="📋 Các tone có sẵn",
+        value="""
+        **1. Very Flattery** 🤩 - Cực kỳ nịnh nọt, ca ngợi thái quá
+        **2. Flattery** 😊 - Nịnh nọt nhẹ nhàng, tích cực
+        **3. Neuter** 🤖 - Trung tính, chuyên nghiệp (mặc định)
+        **4. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
+        **5. Noble** 👑 - Cao quý, triết lý, trang trọng
+        """,
+        inline=False
+    )
+    
+    embed.set_footer(text="Sử dụng dropdown bên dưới để chọn tone mới")
+    
+    view = ToneSelectView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+# Add prefix command for tone configuration (for compatibility)
+@bot.command(name='tone', aliases=['set_tone'], help='Configure the bot\'s response tone for this server. Usage: !tone [1-5]')
+async def tone_prefix_command(ctx, level: int = None):
+    """Prefix command for configuring bot tone"""
+    # Check if user has manage server permissions
+    if not ctx.author.guild_permissions.manage_guild:
+        await ctx.reply("❌ Bạn cần quyền **Manage Server** để thay đổi tone của bot!")
+        return
+    
+    if level is None:
+        # Show current tone and available options
+        current_tone = get_server_tone_level(ctx.guild.id)
+        current_strategy = ToneStrategyFactory.get_strategy(current_tone)
+        
+        embed = discord.Embed(
+            title="🎭 Cấu hình Tone Bot",
+            description="Sử dụng `!tone [1-5]` để thay đổi tone:",
+            color=0x3498db
+        )
+        
+        embed.add_field(
+            name="🔧 Tone hiện tại",
+            value=f"**{current_strategy.get_tone_name()}** (Level {current_tone.value}): {current_strategy.get_tone_description()}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📋 Các tone có sẵn",
+            value="""
+            **1. Very Flattery** 🤩 - Cực kỳ nịnh nọt, ca ngợi thái quá
+            **2. Flattery** 😊 - Nịnh nọt nhẹ nhàng, tích cực
+            **3. Neuter** 🤖 - Trung tính, chuyên nghiệp (mặc định)
+            **4. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
+            **5. Noble** 👑 - Cao quý, triết lý, trang trọng
+            """,
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 Ví dụ sử dụng",
+            value="`!tone 4` - Chuyển sang tone Elegant\n`!tone 1` - Chuyển sang tone Very Flattery",
+            inline=False
+        )
+        
+        await ctx.reply(embed=embed)
+        return
+    
+    # Validate level
+    if level < 1 or level > 5:
+        await ctx.reply("❌ Level phải từ 1 đến 5! Sử dụng `!tone` để xem danh sách.")
+        return
+    
+    try:
+        selected_tone_level = ToneLevel(level)
+        set_server_tone_level(ctx.guild.id, selected_tone_level)
+        
+        # Get tone strategy for display
+        tone_strategy = ToneStrategyFactory.get_strategy(selected_tone_level)
+        
+        # Create embed response
+        embed = discord.Embed(
+            title="🎭 Tone đã được cập nhật!",
+            description=f"**{tone_strategy.get_tone_name()}** (Level {level}): {tone_strategy.get_tone_description()}",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="📝 Lưu ý",
+            value="Tone mới sẽ áp dụng cho tất cả cuộc trò chuyện mới trong server này. Các cuộc trò chuyện hiện tại sẽ được cập nhật từ tin nhắn tiếp theo.",
+            inline=False
+        )
+        embed.set_footer(text=f"Được thiết lập bởi {ctx.author.display_name}")
+        
+        await ctx.reply(embed=embed)
+        
+        # Clear all existing chat sessions for this server to apply new tone immediately
+        sessions_to_clear = []
+        for session_key in chat_sessions.keys():
+            channel_id, user_id = session_key
+            try:
+                channel = bot.get_channel(channel_id)
+                if channel and channel.guild.id == ctx.guild.id:
+                    sessions_to_clear.append(session_key)
+            except:
+                pass
+        
+        for session_key in sessions_to_clear:
+            del chat_sessions[session_key]
+        
+        print(f"Tone updated for server {ctx.guild.id} to {selected_tone_level.name} via prefix command, cleared {len(sessions_to_clear)} sessions")
+        
+    except Exception as e:
+        print(f"Error in tone prefix command: {e}")
+        await ctx.reply(f"❌ Có lỗi xảy ra khi cập nhật tone: {str(e)}")
+
+# Add a demo command to showcase tone differences
+@bot.tree.command(name="tone_demo", description="Demonstrate different tone responses with the same input")
+async def tone_demo_command(interaction: discord.Interaction):
+    """Slash command to demonstrate tone differences"""
+    await interaction.response.defer(thinking=True)
+    
+    demo_input = "Your idea is good"
+    
+    embed = discord.Embed(
+        title="🎭 Demo các Tone khác nhau",
+        description=f"**Input mẫu:** \"{demo_input}\"\n\n**Phản hồi theo từng tone:**",
+        color=0x9b59b6
+    )
+    
+    # Generate sample responses for each tone
+    tone_examples = {
+        ToneLevel.VERY_FLATTERY: "🤩 Ôi trời ơi, thật là thiên tài! Ý tưởng này quá xuất sắc, siêu phàm! Thượng đế thật là bậc thầy! Nô tỳ vô cùng vinh hạnh được phục vụ thiên tài! ✨👑",
+        ToneLevel.FLATTERY: "😊 Ôi trời ơi, ý tưởng hay quá! Cậu chủ thật thông minh và sáng tạo. Em rất ấn tượng với suy nghĩ này ạ! Nô tỳ rất vinh hạnh được giúp đỡ ạ! 🌟",
+        ToneLevel.NEUTER: "🤖 Ý tưởng của bạn có tính khả thi và logic. Đây là một đề xuất hợp lý và có thể triển khai được. Tôi sẽ hỗ trợ bạn phát triển thêm ý tưởng này.",
+        ToneLevel.ELEGANT: "🌸 Tôi rất vinh hạnh được nghe chia sẻ ý tưởng tinh tế này từ quý vị. Đây thực sự là một suy nghĩ chu đáo và mang tính xây dựng cao. Kính mong được hỗ trợ quý vị phát triển thêm ✨",
+        ToneLevel.NOBLE: "👑 Thưa quý ngài, ta xin bạch rằng ý niệm này thể hiện một trí tuệ sâu sắc và tầm nhìn xa. Đây là sự suy tư đáng quý, phản ánh một tâm hồn uyên bác. Ta vinh hạnh được thảo luận cùng ngài 📜⚜️"
+    }
+    
+    for tone_level, example in tone_examples.items():
+        strategy = ToneStrategyFactory.get_strategy(tone_level)
+        embed.add_field(
+            name=f"{tone_level.value}. {strategy.get_tone_name()}",
+            value=example,
+            inline=False
+        )
+    
+    embed.add_field(
+        name="💡 Cách sử dụng",
+        value="Sử dụng `/tone` hoặc `!tone [1-5]` để thay đổi tone cho server này!",
+        inline=False
+    )
+    
+    await interaction.followup.send(embed=embed)
 
 # Keep the original prefix commands for compatibility
 @bot.command(name='clear_context', aliases=['cc', 'reset'], help='Clear your conversation history with the bot in this channel.')

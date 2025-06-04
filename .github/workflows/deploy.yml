@@ -111,4 +111,4 @@ jobs:
             sudo docker logs discord-bot --tail 10
             exit 1
           fi
-        ENDSSH 
+        ENDSSH
