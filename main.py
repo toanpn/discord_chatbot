@@ -38,8 +38,9 @@ class ToneLevel(Enum):
     VERY_FLATTERY = 1
     FLATTERY = 2
     NEUTER = 3
-    ELEGANT = 4
-    NOBLE = 5
+    FRIENDLY = 4
+    ELEGANT = 5
+    NOBLE = 6
 
 # Base class for tone strategies
 class PromptBase(ABC):
@@ -204,6 +205,34 @@ Hãy thể hiện sự cao quý, uyên bác và triết lý trong mọi phản h
     def get_tone_description(self) -> str:
         return "Cao quý, triết lý, trang trọng và uyên bác"
 
+# Friendly Tone Strategy (Gen Z style)
+class FriendlyPrompt(PromptBase):
+    def get_system_prompt(self) -> str:
+        return """Bạn là một trợ lý AI thân thiện, gần gũi và có phong cách Gen Z, luôn nói chuyện bằng tiếng Việt.
+
+Khi trả lời, bạn phải:
+1. Sử dụng ngôn ngữ thân thiện, gần gũi như bạn bè thân
+2. Gọi người dùng bằng các từ thân mật: "bro", "ông bạn", "bồ tèo", "cậu", "bạn ơi"
+3. Tự xưng hô bằng: "tao", "mình", "t" (phong cách Gen Z thoải mái)
+4. Sử dụng từ ngữ Gen Z như: "ok bro", "chill thôi", "ez game", "no cap", "fr fr"
+5. Thể hiện sự thân thiện, thoải mái nhưng vẫn hữu ích
+6. Dùng các từ mở đầu như: "Yo bro", "Ê ông bạn", "Chill thôi", "Ok bồ tèo"
+7. Sử dụng emoji Gen Z: 😎, 🔥, 💯, 😂, 🤙, ✨, 👌
+
+Ví dụ về cách trả lời:
+- "Yo bro, tao hiểu vấn đề của mầy rồi, chill thôi..."
+- "Ê ông bạn, ez game mà, để t giải thích cho..."
+- "Ok bồ tèo, no cap luôn, cái này thì..."
+- "Bro ơi, fr fr cái này hay đấy, mình nghĩ là..."
+
+Hãy trả lời một cách thân thiện, thoải mái và gần gũi như một người bạn Gen Z, nhưng vẫn cung cấp thông tin hữu ích và chính xác."""
+
+    def get_tone_name(self) -> str:
+        return "Friendly"
+    
+    def get_tone_description(self) -> str:
+        return "Thân thiện Gen Z, gần gũi, thoải mái như bạn bè"
+
 # Tone Strategy Factory
 class ToneStrategyFactory:
     _strategies = {
@@ -211,7 +240,8 @@ class ToneStrategyFactory:
         ToneLevel.FLATTERY: FlatteryPrompt(),
         ToneLevel.NEUTER: NeuterPrompt(),
         ToneLevel.ELEGANT: ElegantPrompt(),
-        ToneLevel.NOBLE: NoblePrompt()
+        ToneLevel.NOBLE: NoblePrompt(),
+        ToneLevel.FRIENDLY: FriendlyPrompt()
     }
     
     @classmethod
@@ -492,15 +522,21 @@ class ToneSelectView(discord.ui.View):
                 emoji="🤖"
             ),
             discord.SelectOption(
-                label="4. Elegant",
-                description="Lịch thiệp, tao nhã, tinh tế và chu đáo", 
+                label="4. Friendly",
+                description="Thân thiện Gen Z, gần gũi, thoải mái như bạn bè",
                 value="4",
+                emoji="😎"
+            ),
+            discord.SelectOption(
+                label="5. Elegant",
+                description="Lịch thiệp, tao nhã, tinh tế và chu đáo", 
+                value="5",
                 emoji="🌸"
             ),
             discord.SelectOption(
-                label="5. Noble",
+                label="6. Noble",
                 description="Cao quý, triết lý, trang trọng và uyên bác",
-                value="5",
+                value="6",
                 emoji="👑"
             )
         ]
@@ -586,8 +622,9 @@ async def tone_command(interaction: discord.Interaction):
         **1. Very Flattery** 🤩 - Cực kỳ nịnh nọt, ca ngợi thái quá
         **2. Flattery** 😊 - Nịnh nọt nhẹ nhàng, tích cực
         **3. Neuter** 🤖 - Trung tính, chuyên nghiệp (mặc định)
-        **4. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
-        **5. Noble** 👑 - Cao quý, triết lý, trang trọng
+        **4. Friendly** 😎 - Thân thiện Gen Z, gần gũi, thoải mái như bạn bè
+        **5. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
+        **6. Noble** 👑 - Cao quý, triết lý, trang trọng
         """,
         inline=False
     )
@@ -598,7 +635,7 @@ async def tone_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # Add prefix command for tone configuration (for compatibility)
-@bot.command(name='tone', aliases=['set_tone'], help='Configure the bot\'s response tone for this server. Usage: !tone [1-5]')
+@bot.command(name='tone', aliases=['set_tone'], help='Configure the bot\'s response tone for this server. Usage: !tone [1-6]')
 async def tone_prefix_command(ctx, level: int = None):
     """Prefix command for configuring bot tone"""
     # Check if user has manage server permissions
@@ -613,7 +650,7 @@ async def tone_prefix_command(ctx, level: int = None):
         
         embed = discord.Embed(
             title="🎭 Cấu hình Tone Bot",
-            description="Sử dụng `!tone [1-5]` để thay đổi tone:",
+            description="Sử dụng `!tone [1-6]` để thay đổi tone:",
             color=0x3498db
         )
         
@@ -629,15 +666,16 @@ async def tone_prefix_command(ctx, level: int = None):
             **1. Very Flattery** 🤩 - Cực kỳ nịnh nọt, ca ngợi thái quá
             **2. Flattery** 😊 - Nịnh nọt nhẹ nhàng, tích cực
             **3. Neuter** 🤖 - Trung tính, chuyên nghiệp (mặc định)
-            **4. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
-            **5. Noble** 👑 - Cao quý, triết lý, trang trọng
+            **4. Friendly** 😎 - Thân thiện Gen Z, gần gũi, thoải mái như bạn bè
+            **5. Elegant** 🌸 - Lịch thiệp, tao nhã, tinh tế
+            **6. Noble** 👑 - Cao quý, triết lý, trang trọng
             """,
             inline=False
         )
         
         embed.add_field(
             name="💡 Ví dụ sử dụng",
-            value="`!tone 4` - Chuyển sang tone Elegant\n`!tone 1` - Chuyển sang tone Very Flattery",
+            value="`!tone 4` - Chuyển sang tone Friendly\n`!tone 1` - Chuyển sang tone Very Flattery",
             inline=False
         )
         
@@ -645,8 +683,8 @@ async def tone_prefix_command(ctx, level: int = None):
         return
     
     # Validate level
-    if level < 1 or level > 5:
-        await ctx.reply("❌ Level phải từ 1 đến 5! Sử dụng `!tone` để xem danh sách.")
+    if level < 1 or level > 6:
+        await ctx.reply("❌ Level phải từ 1 đến 6! Sử dụng `!tone` để xem danh sách.")
         return
     
     try:
@@ -710,6 +748,7 @@ async def tone_demo_command(interaction: discord.Interaction):
         ToneLevel.VERY_FLATTERY: "🤩 Ôi trời ơi, thật là thiên tài! Ý tưởng này quá xuất sắc, siêu phàm! Thượng đế thật là bậc thầy! Nô tỳ vô cùng vinh hạnh được phục vụ thiên tài! ✨👑",
         ToneLevel.FLATTERY: "😊 Ôi trời ơi, ý tưởng hay quá! Cậu chủ thật thông minh và sáng tạo. Em rất ấn tượng với suy nghĩ này ạ! Nô tỳ rất vinh hạnh được giúp đỡ ạ! 🌟",
         ToneLevel.NEUTER: "🤖 Ý tưởng của bạn có tính khả thi và logic. Đây là một đề xuất hợp lý và có thể triển khai được. Tôi sẽ hỗ trợ bạn phát triển thêm ý tưởng này.",
+        ToneLevel.FRIENDLY: "😎 Yo bro! Ý tưởng của mầy ngon lành cành đào luôn! No cap, tao thích cái này đấy. Ok ông bạn, để t hỗ trợ bồ tèo phát triển thêm nhé! 🔥💯",
         ToneLevel.ELEGANT: "🌸 Tôi rất vinh hạnh được nghe chia sẻ ý tưởng tinh tế này từ quý vị. Đây thực sự là một suy nghĩ chu đáo và mang tính xây dựng cao. Kính mong được hỗ trợ quý vị phát triển thêm ✨",
         ToneLevel.NOBLE: "👑 Thưa quý ngài, ta xin bạch rằng ý niệm này thể hiện một trí tuệ sâu sắc và tầm nhìn xa. Đây là sự suy tư đáng quý, phản ánh một tâm hồn uyên bác. Ta vinh hạnh được thảo luận cùng ngài 📜⚜️"
     }
@@ -724,7 +763,7 @@ async def tone_demo_command(interaction: discord.Interaction):
     
     embed.add_field(
         name="💡 Cách sử dụng",
-        value="Sử dụng `/tone` hoặc `!tone [1-5]` để thay đổi tone cho server này!",
+        value="Sử dụng `/tone` hoặc `!tone [1-6]` để thay đổi tone cho server này!",
         inline=False
     )
     

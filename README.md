@@ -14,19 +14,21 @@ A Discord bot that uses Google's Gemini AI to provide chat functionality and ima
 
 ## Tone System
 
-The bot supports 5 distinct tone levels that can be configured per server:
+The bot supports 6 distinct tone levels that can be configured per server:
+
 | Level | Name | Description |
 |-------|------|-------------|
 | 1 | Very Flattery | Extremely flattering, excessive praise, user idolization |
 | 2 | Flattery | Gentle flattery, positive but still professional |
 | 3 | Neuter (Default) | Neutral, professional, emotionless |
-| 4 | Elegant | Courteous, refined, subtle and attentive |
-| 5 | Noble | Noble, philosophical, formal and erudite |
+| 4 | Friendly | Gen Z friendly, casual, relaxed like close friends |
+| 5 | Elegant | Courteous, refined, subtle and attentive |
+| 6 | Noble | Noble, philosophical, formal and erudite |
 
 ### Tone Configuration Commands
 
 - `/tone` - Configure tone with dropdown UI (requires Manage Server permission)
-- `!tone [1-5]` - Set tone level directly (requires Manage Server permission)
+- `!tone [1-6]` - Set tone level directly (requires Manage Server permission)
 - `!tone` - Show current tone and available options
 - `/tone_demo` - Demonstrate all tone responses with sample input
 
@@ -178,7 +180,7 @@ Uses Docker to containerize the application.
    - `!clear_context` (aliases: `!cc`, `!reset`): Clear your conversation history
    - `!imagine [description]` (aliases: `!img`, `!image`, `!create`): Generate an image from a description
    - `!summary [count]` (aliases: `!sum`, `!summarize`): Summarize recent messages
-   - `!tone [1-5]`: Set tone level directly
+   - `!tone [1-6]`: Set tone level directly
 
 ## Troubleshooting
 
@@ -195,5 +197,7 @@ Uses Docker to containerize the application.
 - **Generate image**: `/imagine prompt:a futuristic city with flying cars`
 - **Reset conversation**: `/clear_context`
 - **Configure tone**: `/tone` (then select from dropdown)
-- **Set tone directly**: `!tone 4` (sets to Elegant tone)
+- **Set tone directly**: `!tone 4` (sets to Friendly tone)
+- **Set elegant tone**: `!tone 5` (sets to Elegant tone)
+- **Set noble tone**: `!tone 6` (sets to Noble tone)
 - **See tone examples**: `/tone_demo`
