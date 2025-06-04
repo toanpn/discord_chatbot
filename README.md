@@ -118,7 +118,7 @@ Uses Docker to containerize the application.
 1. **Start the bot**
 
    ```bash
-   python new_discord_bot.py
+   python main.py
    ```
 
 2. **Chat with the bot**
@@ -150,4 +150,4 @@ Uses Docker to containerize the application.
 - **Chat (slash command)**: `/chat message:What's the capital of France?`
 - **Follow-up**: `@BotName And what's interesting to visit there?`
 - **Generate image**: `/imagine prompt:a futuristic city with flying cars`
-- **Reset conversation**: `/clear_context` 
+- **Reset conversation**: `/clear_context`
