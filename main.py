@@ -535,4 +535,4 @@ if __name__ == "__main__":
     except discord.errors.LoginFailure:
         print("ERROR: Invalid Discord Token. Please check your .env file.")
     except Exception as e:
-        print(f"Unexpected error: {e}") 
+        print(f"Unexpected error: {e}")
