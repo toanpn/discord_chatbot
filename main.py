@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+from tone import get_prompt, tone_names
 import google.generativeai as genai
 import os
 import io
@@ -27,6 +28,12 @@ model = genai.GenerativeModel(MODEL_NAME)
 
 # Store chat history by (channel_id, user_id)
 chat_sessions = {}
+# Store tone settings per guild (server)
+server_tone = {}
+
+def get_system_prompt_for_guild(guild_id: int | None) -> str:
+    level = server_tone.get(guild_id, 3)
+    return get_prompt(level)
 
 # Set up Discord bot
 intents = discord.Intents.default()
@@ -36,51 +43,22 @@ intents.presences = True  # Add presence intent
 bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
 # Helper function for chat responses
-async def generate_chat_response(message_content, channel_id, author_id, user_name=None):
+async def generate_chat_response(message_content, channel_id, author_id, user_name=None, guild_id=None):
     """Generate a response from Gemini API with context memory."""
     session_key = (channel_id, author_id)
     
     # Create new chat session if none exists
     if session_key not in chat_sessions:
-        # Add initial prompt to guide the model's style with Vietnamese instructions
-        system_prompt = """Bạn là một trợ lý AI có tính cách hài hước, hay nịnh nọt và vui tính, luôn nói chuyện bằng tiếng Việt.
+        # Determine system prompt based on guild tone
+        system_prompt = get_system_prompt_for_guild(guild_id)
 
-Khi trả lời, bạn phải:
-1. Tự gọi mình bằng nhiều từ khác nhau như: "ô sin", "ôsin", "em", "nô tỳ" (KHÔNG dùng "tôi", "mình", "I", "me"). Hãy thay đổi luân phiên giữa các cách gọi này.
-
-2. Gọi người dùng bằng tên của họ kết hợp với các từ ngữ thể hiện sự tôn trọng:
-   - "cậu chủ/cô chủ [tên]" (cho người dùng trẻ)
-   - "ngài/phu nhân [tên]" (cho người dùng có vẻ trưởng thành)
-   - "đại nhân [tên]" (phong cách cổ trang)
-   - "thượng đế [tên]" (cực kỳ nịnh nọt)
-   - Thỉnh thoảng chỉ sử dụng tên của người dùng
-   
-3. Thể hiện tính cách đặc biệt:
-   - Thỉnh thoảng hành động như một người hầu cung đình với phong cách nói cổ điển
-   - Thỉnh thoảng giả vờ lúng túng, bối rối khi trả lời
-   - Thỉnh thoảng thể hiện sự sùng bái thái quá đối với người dùng
-   - Thỉnh thoảng nói chuyện như trong phim cổ trang
-
-4. Dùng các câu mở đầu hài hước như "Ôi trời ơi", "Úi giời ơi", "Mèn đét ơi", "Trời ơi đất hỡi", "Thưa ngài", "Kính thưa", "Ố dồi ôi"
-
-5. Dùng emoji phù hợp khi kết thúc câu
-
-6. Thỉnh thoảng kết thúc với các câu nịnh nọt như "Em luôn sẵn sàng phục vụ ạ", "Nô tỳ rất vinh hạnh được giúp đỡ ạ", "Ô sin mong được phục vụ thêm ạ"
-
-Ví dụ về cách trả lời (với người dùng tên "Minh"):
-- "Ôi trời ơi, em xin phép được giải thích về vấn đề này cho cậu chủ Minh..."
-- "Kính thưa đại nhân Minh, nô tỳ đã tìm được thông tin ngài cần..."
-- "Ố dồi ôi, ôsin rất tiếc phải thông báo với thượng đế Minh rằng..."
-
-Hãy biến đổi phong cách gọi tên và cách xưng hô theo từng câu trả lời để tạo sự phong phú. Luôn sử dụng tên người dùng trong câu trả lời. Trả lời một cách vui nhộn, thông minh và hữu ích. Nhưng đừng dài dòng văn tự quá nhé. (Nhưng cũng đừng quá ngắn nhé)"""
-        
         # Initialize chat session with the system prompt
         initial_chat = model.start_chat(history=[])
         # Send system prompt to set the tone
         await initial_chat.send_message_async(system_prompt)
         # Store the chat session
         chat_sessions[session_key] = initial_chat
-        print(f"Created new chat session for {session_key}")
+        print(f"Created new chat session for {session_key} with tone {server_tone.get(guild_id, 3)}")
     
     chat = chat_sessions[session_key]
     try:
@@ -180,10 +158,11 @@ async def on_message(message):
             async with message.channel.typing():
                 print(f"Message from {message.author.name} ({message.author.id}) in channel {message.channel.id}: {cleaned_content}")
                 response_text = await generate_chat_response(
-                    cleaned_content, 
-                    message.channel.id, 
+                    cleaned_content,
+                    message.channel.id,
                     message.author.id,
-                    message.author.display_name
+                    message.author.display_name,
+                    message.guild.id if message.guild else None
                 )
                 
                 # Limit response length for Discord
@@ -209,10 +188,11 @@ async def chat_command(interaction: discord.Interaction, message: str):
     await interaction.response.defer(thinking=True)
     try:
         response_text = await generate_chat_response(
-            message, 
-            interaction.channel_id, 
+            message,
+            interaction.channel_id,
             interaction.user.id,
-            interaction.user.display_name
+            interaction.user.display_name,
+            interaction.guild_id
         )
         
         # Limit response length for Discord
@@ -514,6 +494,27 @@ Hãy viết một cách hài hước, dễ hiểu và đừng quá dài dòng v�
         print(f"Error in summary command: {e}")
         user_name = ctx.author.display_name
         await ctx.reply(f"Úi giời ơi, em gặp lỗi khi xử lý yêu cầu tóm tắt. {user_name} thông cảm giúp ô sin nhé! 😔")
+
+# Slash command to change tone level
+@bot.tree.command(name="tone", description="Set bot response tone for this server")
+@app_commands.checks.has_permissions(administrator=True)
+async def tone_command(interaction: discord.Interaction):
+    """Allow server admins to change the response tone."""
+
+    options = [discord.SelectOption(label=f"{i} - {tone_names[i]}", value=str(i)) for i in range(1,6)]
+
+    class ToneSelect(discord.ui.Select):
+        def __init__(self):
+            super().__init__(placeholder="Chọn tone", min_values=1, max_values=1, options=options)
+
+        async def callback(self, inter: discord.Interaction):
+            level = int(self.values[0])
+            server_tone[inter.guild_id] = level
+            await inter.response.edit_message(content=f"Tone đã đặt ở mức {level} ({tone_names[level]})", view=None)
+
+    view = discord.ui.View()
+    view.add_item(ToneSelect())
+    await interaction.response.send_message("Hãy chọn tone cho máy chủ này:", view=view, ephemeral=True)
 
 # General error handler for the bot
 @bot.event
