@@ -58,6 +58,7 @@ Uses Docker to containerize the application.
 - Mention the bot or use `/chat` to chat with the AI
 - Use `!imagine` or `/imagine` to generate images
 - Use `!clear_context` or `/clear_context` to reset chat history
+- Use `/tone` to change the bot's response tone per server
 
 ## Features
 
@@ -66,6 +67,7 @@ Uses Docker to containerize the application.
 - **Command-based interaction**: Traditional commands with the "!" prefix
 - **Image generation**: Create images from text descriptions
 - **Context management**: Maintains separate conversation history for each user
+- **Customizable tone**: Adjust the bot's style from flattering to formal
 
 ## Setup
 
@@ -133,6 +135,7 @@ Uses Docker to containerize the application.
    - `/chat [message]`: Chat with the AI
    - `/imagine [prompt]`: Generate an image from a description
    - `/clear_context`: Clear your conversation history
+   - `/tone`: Choose how formal or flattering the bot should be
 
    **Traditional Commands:**
    - `!clear_context` (aliases: `!cc`, `!reset`): Clear your conversation history
